@@ -4,71 +4,7 @@ Linux 服务器一体化代理部署脚本。
 
 它可以帮助你快速部署和管理多种协议，包括 **VLESS**、**VMess**、**Trojan**、**Hysteria2**、**TUIC**、**NaiveProxy**、**Snell**、**SOCKS5** 和 **SS2022**。
 
-## 文档
 
-- **网站文档：** https://docs.vaiox.de/
-- **Telegram 群组：** https://t.me/vless_vaio
-- **Telegram 频道：** https://t.me/vaio_channel
-
-## 赞助与推荐
-
-### VPS / 服务器赞助商
-
-<p>
-  <a href="https://www.takehost.biz/" target="_blank" rel="noopener noreferrer">
-    <img src="https://www.takehost.biz/favicon.ico" alt="takehost" width="50" height="50" style="vertical-align: middle; margin-right: 6px;" />
-    <strong>takehost</strong>
-  </a>
-  — 提供独立服务器、VPS 和游戏服务器，网络峰值可达 100 Gbps。
-</p>
-
-<p>
-  <a href="https://akile.io/register?aff_code=b349580b-113a-4b42-ab76-c2db81c5c22d" target="_blank" rel="noopener noreferrer">
-    <img src="https://akile.io/favicon.ico" alt="AkileCloud" height="50" style="vertical-align: middle; margin-right: 6px;" />
-    <strong>AkileCloud</strong>
-  </a>
-  — 多地区覆盖 / 解锁流媒体 / 提供多国 SOCKS5 落地出口 / 包含原生家宽 IP / 高性价比。
-</p>
-
-<p>
-  <a href="https://cloud.yt.net/?ref=13192" target="_blank" rel="noopener noreferrer">
-    <img src="https://cloud.yt.net/logo.png" alt="YT.NET" height="50" style="vertical-align: middle; margin-right: 6px;" />
-    <strong>YT.NET</strong>
-  </a>
-  — 原生 IP / 送 CNIX NAT 入口 / 深港节点 / BGP 国际网络。
-</p>
-
-<p>
-  <a href="https://dash.lain.sh?ref=Charonlio" target="_blank" rel="noopener noreferrer">
-    <img src="https://dash.lain.sh/img/favicon-16x16.png" alt="Lain.sh" height="50" style="vertical-align: middle; margin-right: 6px;" />
-    <strong>Lain.sh</strong>
-  </a>
-  — 原生 IP / 解锁流媒体 / 家宽 ISP / 独立服务器。
-</p>
-
-<p>
-  <a href="https://www.cstonecloud.com/aff.php?aff=358" target="_blank" rel="noopener noreferrer">
-    <img src="https://www.cstonecloud.com/logo.png" alt="CstoneCloud" height="15" style="vertical-align: middle; margin-right: 6px;" />
-    <strong>CstoneCloud</strong>
-  </a>
-  — 住宅双 ISP / 解锁流媒体 / 直连 & 五网回程 9929 / CN2 双向接入。
-</p>
-
-<p>
-  <a href="https://www.skylineconnect.io/signup?aff=01CC63AP" target="_blank" rel="noopener noreferrer">
-    <img src="https://www.skylineconnect.io/images/favicon.svg" height="50">
-    <strong>SkylineConnect</strong>
-  </a>
-  — 软银 / Lumen / 大陆优化 / 大流量服务器 / 虚拟机 10Gbps 网口。
-</p>
-
-<p>
-  <a href="https://www.geelinx.com/aff/HLGCSMDN" target="_blank" rel="noopener noreferrer">
-    <img src="https://www.geelinx.com/favicon.ico" alt="Geelinx" height="50" style="vertical-align: middle; margin-right: 6px;" />
-    <strong>Geelinx</strong>
-  </a>
-  — 解锁流媒体 / 大陆优化 / 单向带宽计费。
-</p>
 
 ### 指纹浏览器推荐
 
