@@ -26,6 +26,8 @@ wget -O vless-server.sh https://raw.githubusercontent.com/charmtv/mlnbvless-all-
 curl -fsSL https://raw.githubusercontent.com/charmtv/mlnbvless-all-in/main/install.sh | bash
 ```
 
+若出现**菜单能显示但无法输入数字**（管道方式下 stdin 不是终端），请改用先落盘再执行：`curl -fsSL -o install.sh .../install.sh && bash install.sh`；或使用上面的 `wget` 一行命令。新版 `vless-server.sh` 已尽量从 `/dev/tty` 读取菜单。
+
 ### Cloudflare 自定义域名（install.sh 未与仓库同步时）
 
 若你使用自有域名（例如通过 Cloudflare 反代 `install.sh`），更新仓库后边缘仍可能返回旧内容，可按下面排查：

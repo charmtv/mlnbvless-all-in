@@ -26537,6 +26537,10 @@ do_update() {
 
 main_menu() {
     check_root
+    # 管道/curl|bash 等方式启动时 stdin 不是终端，read 会立刻 EOF，菜单无法选数字；改从本机终端读
+    if [[ ! -t 0 ]] && [[ -r /dev/tty ]]; then
+        exec 0</dev/tty
+    fi
     init_log  # 初始化日志
     init_db   # 初始化 JSON 数据库
     db_migrate_to_multiuser  # 迁移旧的单用户配置到多用户格式
