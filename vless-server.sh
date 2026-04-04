@@ -4349,7 +4349,12 @@ _ok()    { echo -e "  ${G}✓${NC} $1" >&2; _log "OK" "$1"; }
 _err()   { echo -e "  ${R}✗${NC} $1" >&2; _log "ERROR" "$1"; }
 _warn()  { echo -e "  ${Y}!${NC} $1" >&2; _log "WARN" "$1"; }
 _item()  { echo -e "  ${G}$1${NC}) $2" >&2; }
-_pause() { echo "" >&2; read -rp "  按回车继续..."; }
+_pause() {
+    echo "" >&2
+    if [[ -r /dev/tty ]]; then read -rp "  按回车继续..." </dev/tty
+    else read -rp "  按回车继续..."
+    fi
+}
 
 # URL 解码函数 (处理 %XX 编码的中文等字符)
 urldecode() {
@@ -26643,7 +26648,12 @@ main_menu() {
         _item "0" "退出"
         _line
 
-        read -rp "  请选择: " choice || exit 0
+        # 主菜单 read 显式从 /dev/tty 读，避免「curl|bash 且 Worker 仍指向 vless-server.sh」时 stdin 仍被管道占用
+        if [[ -r /dev/tty ]]; then
+            read -rp "  请选择: " choice </dev/tty || exit 0
+        else
+            read -rp "  请选择: " choice || exit 0
+        fi
         
         local skip_pause=false
         if [[ -n "$installed" ]]; then

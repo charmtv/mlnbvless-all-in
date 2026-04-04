@@ -38,6 +38,9 @@ curl -fsSL https://raw.githubusercontent.com/charmtv/mlnbvless-all-in/main/insta
 
 ### Cloudflare 自定义域名（install.sh 未与仓库同步时）
 
+**关键**：Worker 里 `/install.sh` 的跳转目标必须是 **`.../main/install.sh`**（GitHub raw），**不要** 写成 **`vless-server.sh`**。  
+若写成 `vless-server.sh`，用户执行 `curl https://你的域名/install.sh | bash` 时，bash 会直接从管道执行主脚本，`install.sh` 里为修复 stdin 写的 `exec … </dev/tty` **根本不会运行**，菜单容易异常。示例代码见仓库 [`tools/cloudflare-worker-install-route.example.js`](tools/cloudflare-worker-install-route.example.js)。
+
 若你使用自有域名（例如通过 Cloudflare 反代 `install.sh`），更新仓库后边缘仍可能返回旧内容，可按下面排查：
 
 1. **刷新缓存**：Cloudflare 控制台 → Caching → Purge Cache → **Custom Purge**，填入你的 `https://你的域名/install.sh`（必要时 **Purge Everything**）。
