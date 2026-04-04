@@ -28,6 +28,14 @@ curl -fsSL https://raw.githubusercontent.com/charmtv/mlnbvless-all-in/main/insta
 
 若出现**菜单能显示但无法输入数字**（管道方式下 stdin 不是终端），请改用先落盘再执行：`curl -fsSL -o install.sh .../install.sh && bash install.sh`；或使用上面的 `wget` 一行命令。新版 `vless-server.sh` 已尽量从 `/dev/tty` 读取菜单。
 
+### 自动化（推送仓库 / 升级服务器脚本）
+
+- **本机 Windows（多轮重试 `git push`）**：在仓库根目录执行  
+  `powershell -ExecutionPolicy Bypass -File .\tools\push-to-github.ps1`  
+  可选环境变量：`GIT_PUSH_RETRIES`（默认 8）、`GIT_PUSH_DELAY_SEC`（默认 4）。
+- **已在跑的 Linux 服务器**：用 root 执行，从 GitHub `main` 覆盖 `/usr/local/bin/vless-server.sh` 并重建 `ml`：  
+  `curl -fsSL https://raw.githubusercontent.com/charmtv/mlnbvless-all-in/main/tools/upgrade-from-github.sh | bash`
+
 ### Cloudflare 自定义域名（install.sh 未与仓库同步时）
 
 若你使用自有域名（例如通过 Cloudflare 反代 `install.sh`），更新仓库后边缘仍可能返回旧内容，可按下面排查：
