@@ -6,15 +6,7 @@ Linux 服务器一体化代理部署脚本。
 
 
 
-### 指纹浏览器推荐
 
-<p>
-  <a href="https://roxybrowser.com?code=0128SUFA" target="_blank" rel="noopener noreferrer">
-    <img src="https://roxybrowser.com/favicon.ico" alt="RoxyBrowser" height="50" style="vertical-align: middle; margin-right: 6px;" />
-    <strong>RoxyBrowser</strong>
-  </a>
-  — 多账号独立环境 / 多端同步 / 防关联检测 / 团队协作 / 浏览器指纹隔离 / 代理绑定 / AI 多账号管理。
-</p>
 
 ### iOS SSH 客户端推荐
 
