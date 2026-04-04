@@ -13,13 +13,12 @@
 #  适配: Alpine/Debian/Ubuntu/CentOS
 #  
 #  
-#  作者: Zyx0rx
-#  项目地址: https://github.com/charmtv/mlnbvless-all-in
+#  作者: 米粒
 #═══════════════════════════════════════════════════════════════════════════════
 
 readonly VERSION="3.5.3"
-readonly AUTHOR="Zyx0rx"
-readonly REPO_URL="https://github.com/charmtv/mlnbvless-all-in"
+readonly AUTHOR="米粒"
+readonly SHORTCUT_CMD="ml"
 readonly SCRIPT_REPO="charmtv/mlnbvless-all-in"
 readonly SCRIPT_RAW_URL="https://raw.githubusercontent.com/charmtv/mlnbvless-all-in/main/vless-server.sh"
 readonly CFG="/etc/vless-reality"
@@ -4381,8 +4380,7 @@ _header() {
     clear; echo "" >&2
     _dline
     echo -e "      ${W}多协议代理${NC} ${D}一键部署${NC} ${C}v${VERSION}${NC} ${Y}[服务端]${NC}" >&2
-    echo -e "      ${D}作者: ${AUTHOR}  快捷命令: vless${NC}" >&2
-    echo -e "      ${D}${REPO_URL}${NC}" >&2
+    echo -e "      ${D}作者: ${AUTHOR}  快捷命令: ${SHORTCUT_CMD}${NC}" >&2
     _dline
 }
 
@@ -11320,8 +11318,9 @@ _auto_update_system_script() {
         if [[ "$need_update" == "true" ]]; then
             cp -f "$real_path" "$system_script" 2>/dev/null
             chmod +x "$system_script" 2>/dev/null
-            ln -sf "$system_script" /usr/local/bin/vless 2>/dev/null
-            ln -sf "$system_script" /usr/bin/vless 2>/dev/null
+            rm -f /usr/local/bin/vless /usr/bin/vless 2>/dev/null
+            ln -sf "$system_script" "/usr/local/bin/${SHORTCUT_CMD}" 2>/dev/null
+            ln -sf "$system_script" "/usr/bin/${SHORTCUT_CMD}" 2>/dev/null
             hash -r 2>/dev/null
             _ok "系统脚本已同步更新 (v$VERSION)"
         fi
@@ -11365,16 +11364,17 @@ create_shortcut() {
 
     chmod +x "$system_script" 2>/dev/null
 
-    # 创建软链接
-    ln -sf "$system_script" /usr/local/bin/vless 2>/dev/null
-    ln -sf "$system_script" /usr/bin/vless 2>/dev/null
+    # 创建软链接（移除旧版 vless 快捷名，避免并存）
+    rm -f /usr/local/bin/vless /usr/bin/vless 2>/dev/null
+    ln -sf "$system_script" "/usr/local/bin/${SHORTCUT_CMD}" 2>/dev/null
+    ln -sf "$system_script" "/usr/bin/${SHORTCUT_CMD}" 2>/dev/null
     hash -r 2>/dev/null
 
-    _ok "快捷命令已创建: vless"
+    _ok "快捷命令已创建: ${SHORTCUT_CMD}"
 }
 
 remove_shortcut() { 
-    rm -f /usr/local/bin/vless /usr/local/bin/vless-server.sh /usr/bin/vless 2>/dev/null
+    rm -f /usr/local/bin/vless /usr/local/bin/ml /usr/local/bin/vless-server.sh /usr/bin/vless /usr/bin/ml 2>/dev/null
     _ok "快捷命令已移除"
 }
 
@@ -18783,7 +18783,7 @@ do_uninstall() {
     fi
     
     _info "删除快捷命令..."
-    rm -f /usr/local/bin/vless /usr/local/bin/vless.sh /usr/local/bin/vless-server.sh /usr/bin/vless 2>/dev/null
+    rm -f /usr/local/bin/vless /usr/local/bin/ml /usr/local/bin/vless.sh /usr/local/bin/vless-server.sh /usr/bin/vless /usr/bin/ml 2>/dev/null
     
     # 清理 Caddy（如果存在）
     # 支持 NaïveProxy 自定义编译版本和标准版本
@@ -20223,7 +20223,7 @@ do_install_server() {
         fi
         
         _dline
-        _ok "服务端安装完成! 快捷命令: vless"
+        _ok "服务端安装完成! 快捷命令: ${SHORTCUT_CMD}"
         _ok "协议: $(get_protocol_name $current_protocol)"
         _dline
         
