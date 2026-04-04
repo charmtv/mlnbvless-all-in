@@ -6,18 +6,6 @@ Linux 服务器一体化代理部署脚本。
 
 
 
-
-
-### iOS SSH 客户端推荐
-
-<p>
-  <a href="https://apps.apple.com/us/app/careserver/id6474921250" target="_blank" rel="noopener noreferrer">
-    <img src="https://nicejwin.github.io/CareServerWebSite/assets/img/logo.png" alt="CareServer" height="50" style="vertical-align: middle; margin-right: 6px;" />
-    <strong>CareServer</strong>
-  </a>
-  — 服务器实时监控（CPU / 内存 / 磁盘）/ 容器管理（Docker / Podman）/ 端口转发（本地 / 远程 / 动态）/ SFTP 文件管理 / 代理功能（SOCKS / HTTP）/ 分组管理。
-</p>
-
 ## 功能特性
 
 - 一键安装与管理
