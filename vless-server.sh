@@ -5391,6 +5391,12 @@ server {
         add_header Content-Type "text/plain; charset=utf-8";
     }
     
+    # 订阅文件目录 - mihomo
+    location ~ ^/sub/([a-f0-9-]+)/mihomo\$ {
+        alias $CFG/subscription/\$1/mihomo.yaml;
+        default_type text/yaml;
+    }
+
     # 订阅文件目录 - clash
     location ~ ^/sub/([a-f0-9-]+)/clash\$ {
         alias $CFG/subscription/\$1/clash.yaml;
@@ -5468,6 +5474,12 @@ server {
         add_header Content-Type "text/plain; charset=utf-8";
     }
     
+    # 订阅文件目录 - mihomo
+    location ~ ^/sub/([a-f0-9-]+)/mihomo\$ {
+        alias $CFG/subscription/\$1/mihomo.yaml;
+        default_type text/yaml;
+    }
+
     # 订阅文件目录 - clash
     location ~ ^/sub/([a-f0-9-]+)/clash\$ {
         alias $CFG/subscription/\$1/clash.yaml;
@@ -5511,6 +5523,12 @@ server {
         add_header Content-Type "text/plain; charset=utf-8";
     }
     
+    # 订阅文件目录 - mihomo
+    location ~ ^/sub/([a-f0-9-]+)/mihomo\$ {
+        alias $CFG/subscription/\$1/mihomo.yaml;
+        default_type text/yaml;
+    }
+
     # 订阅文件目录 - clash
     location ~ ^/sub/([a-f0-9-]+)/clash\$ {
         alias $CFG/subscription/\$1/clash.yaml;
@@ -18089,7 +18107,9 @@ show_single_protocol_info() {
             local sub_protocol="http"
             [[ "$sub_https" == "true" ]] && sub_protocol="https"
             local base_url="${sub_protocol}://${sub_domain:-$ipv4}:${sub_port}/sub/${sub_uuid}"
-            echo -e "  ${Y}Clash/Clash Verge:${NC}"
+            echo -e "  ${Y}Mihomo/Clash Meta/Clash Verge:${NC}"
+            echo -e "  ${G}$base_url/mihomo${NC}"
+            echo -e "  ${Y}经典 Clash:${NC}"
             echo -e "  ${G}$base_url/clash${NC}"
         elif [[ "$web_service_running" == "true" ]]; then
             echo -e "  ${Y}订阅服务未配置，请在主菜单选择「订阅管理」进行配置${NC}"
@@ -18105,7 +18125,9 @@ show_single_protocol_info() {
             # Reality 真实域名模式时，检查订阅是否已手动启用
             if [[ "${sub_enabled:-false}" == "true" && -n "$sub_port" ]]; then
                 local base_url="https://${sub_domain:-$domain}:${sub_port}/sub/${sub_uuid}"
-                echo -e "  ${Y}Clash/Clash Verge:${NC}"
+                echo -e "  ${Y}Mihomo/Clash Meta/Clash Verge:${NC}"
+                echo -e "  ${G}$base_url/mihomo${NC}"
+                echo -e "  ${Y}经典 Clash:${NC}"
                 echo -e "  ${G}$base_url/clash${NC}"
             else
                 echo -e "  ${D}(订阅服务未启用，如需使用请在主菜单选择「订阅管理」)${NC}"
@@ -21047,8 +21069,8 @@ get_all_external_links() {
     echo -n "$links"
 }
 
-# 将外部节点转换为 Clash 格式
-external_link_to_clash() {
+# 将外部节点转换为 Mihomo / Clash Meta 格式
+external_link_to_mihomo() {
     local link="$1"
     local json=$(parse_share_link "$link")
     [[ -z "$json" ]] && return
@@ -21203,6 +21225,82 @@ EOF
     password: $password
     sni: $sni
     skip-cert-verify: true
+EOF
+            ;;
+    esac
+}
+
+# 将外部节点转换为经典 Clash 兼容格式
+external_link_to_clash() {
+    local link="$1"
+    local json=$(parse_share_link "$link")
+    [[ -z "$json" ]] && return
+
+    local type=$(echo "$json" | jq -r '.type')
+    local name=$(echo "$json" | jq -r '.name')
+    local server=$(echo "$json" | jq -r '.server')
+    local port=$(echo "$json" | jq -r '.port')
+
+    local server_suffix=$(get_ip_suffix "$server")
+    [[ -n "$server_suffix" && "$name" != *"-${server_suffix}"* && "$name" != *"-${server_suffix}" ]] && name="${name}-${server_suffix}"
+
+    case "$type" in
+        vmess)
+            local uuid=$(echo "$json" | jq -r '.uuid')
+            local network=$(echo "$json" | jq -r '.network')
+            local tls=$(echo "$json" | jq -r '.tls')
+            local sni=$(echo "$json" | jq -r '.sni')
+            local path=$(echo "$json" | jq -r '.path')
+            local host=$(echo "$json" | jq -r '.host')
+
+            cat << EOF
+  - name: "$name"
+    type: vmess
+    server: "$server"
+    port: $port
+    uuid: $uuid
+    alterId: 0
+    cipher: auto
+    network: ${network:-tcp}
+    tls: $([[ "$tls" == "tls" ]] && echo "true" || echo "false")
+    skip-cert-verify: true
+    servername: ${sni:-$host}
+EOF
+            if [[ "$network" == "ws" ]]; then
+                cat << EOF
+    ws-opts:
+      path: ${path:-/}
+      headers:
+        Host: ${host:-$sni}
+EOF
+            fi
+            ;;
+        trojan)
+            local password=$(echo "$json" | jq -r '.password')
+            local sni=$(echo "$json" | jq -r '.sni')
+            cat << EOF
+  - name: "$name"
+    type: trojan
+    server: "$server"
+    port: $port
+    password: $password
+    sni: $sni
+    skip-cert-verify: true
+    udp: true
+EOF
+            ;;
+        ss)
+            local method=$(echo "$json" | jq -r '.method')
+            local password=$(echo "$json" | jq -r '.password')
+            [[ "$method" == 2022-* ]] && return
+            cat << EOF
+  - name: "$name"
+    type: ss
+    server: "$server"
+    port: $port
+    cipher: $method
+    password: $password
+    udp: true
 EOF
             ;;
     esac
@@ -21712,8 +21810,8 @@ gen_v2ray_sub() {
     printf '%s' "$links" | base64 -w 0 2>/dev/null || printf '%s' "$links" | base64
 }
 
-# 生成 Clash 订阅内容
-gen_clash_sub() {
+# 生成 Mihomo / Clash Meta 订阅内容
+gen_mihomo_sub() {
     local installed=$(get_installed_protocols)
     local ipv4=$(get_ipv4)
     local ipv6=$(get_ipv6)
@@ -21934,7 +22032,7 @@ gen_clash_sub() {
     local external_links=$(get_all_external_links)
     while IFS= read -r link || [[ -n "$link" ]]; do
         [[ -z "$link" || "$link" != *"://"* ]] && continue
-        local ext_proxy=$(external_link_to_clash "$link")
+        local ext_proxy=$(external_link_to_mihomo "$link")
         if [[ -n "$ext_proxy" ]]; then
             proxies+="$ext_proxy"$'\n'
             # 从生成的 proxy 中提取名称
@@ -21943,8 +22041,16 @@ gen_clash_sub() {
         fi
     done <<< "$external_links"
     
-    # 生成完整 Clash 配置
-    cat << EOF
+    render_clash_profile "$proxies" "$proxy_names"
+}
+
+# 生成 Clash / Mihomo 通用 YAML 骨架
+render_clash_profile() {
+    local proxies="$1"
+    local proxy_names="$2"
+
+    if [[ -n "$proxies" ]]; then
+        cat << EOF
 mixed-port: 7897
 allow-lan: false
 mode: rule
@@ -21956,11 +22062,161 @@ proxy-groups:
   - name: "Proxy"
     type: select
     proxies:
+      - DIRECT
 $proxy_names
 rules:
   - GEOIP,CN,DIRECT
   - MATCH,Proxy
 EOF
+    else
+        cat << EOF
+mixed-port: 7897
+allow-lan: false
+mode: rule
+log-level: info
+
+proxies: []
+proxy-groups:
+  - name: "Proxy"
+    type: select
+    proxies:
+      - DIRECT
+rules:
+  - GEOIP,CN,DIRECT
+  - MATCH,Proxy
+EOF
+    fi
+}
+
+# 生成经典 Clash 兼容订阅内容
+gen_clash_sub() {
+    local installed=$(get_installed_protocols)
+    local ipv4=$(get_ipv4)
+    local ipv6=$(get_ipv6)
+    local proxies=""
+    local proxy_names=""
+
+    local country_code=$(get_ip_country "$ipv4")
+    [[ -z "$country_code" ]] && country_code=$(get_ip_country "$ipv6")
+
+    local server_ip="$ipv4"
+    local ip_suffix="${ipv4##*.}"
+    if [[ -z "$server_ip" && -n "$ipv6" ]]; then
+        server_ip="$ipv6"
+        ip_suffix=$(get_ip_suffix "$ipv6")
+    fi
+
+    local master_port=""
+    master_port=$(_get_master_port "")
+
+    for protocol in $installed; do
+        local cfg=""
+        if db_exists "xray" "$protocol"; then
+            cfg=$(db_get "xray" "$protocol")
+        elif db_exists "singbox" "$protocol"; then
+            cfg=$(db_get "singbox" "$protocol")
+        fi
+        [[ -z "$cfg" ]] && continue
+
+        local cfg_stream=""
+        if echo "$cfg" | jq -e 'type == "array"' >/dev/null 2>&1; then
+            cfg_stream=$(echo "$cfg" | jq -c '.[]')
+        else
+            cfg_stream=$(echo "$cfg" | jq -c '.')
+        fi
+
+        while IFS= read -r cfg; do
+            [[ -z "$cfg" ]] && continue
+
+            local uuid=$(echo "$cfg" | jq -r '.uuid // empty')
+            local port=$(echo "$cfg" | jq -r '.port // empty')
+            local sni=$(echo "$cfg" | jq -r '.sni // empty')
+            local path=$(echo "$cfg" | jq -r '.path // empty')
+            local password=$(echo "$cfg" | jq -r '.password // empty')
+            local username=$(echo "$cfg" | jq -r '.username // empty')
+            local method=$(echo "$cfg" | jq -r '.method // empty')
+            local use_tls=$(echo "$cfg" | jq -r '.tls // "false"')
+
+            local actual_port="$port"
+            if [[ -n "$master_port" && ("$protocol" == "vless-ws" || "$protocol" == "vmess-ws") ]]; then
+                actual_port="$master_port"
+            fi
+
+            local name="${country_code}-$(get_protocol_name $protocol)-${ip_suffix}"
+            local proxy=""
+
+            case "$protocol" in
+            vmess-ws)
+                [[ -n "$server_ip" ]] && proxy="  - name: \"$name\"
+    type: vmess
+    server: \"$server_ip\"
+    port: $actual_port
+    uuid: $uuid
+    alterId: 0
+    cipher: auto
+    network: ws
+    tls: true
+    skip-cert-verify: true
+    servername: $sni
+    ws-opts:
+      path: $path
+      headers:
+        Host: $sni"
+                ;;
+            trojan)
+                [[ -n "$server_ip" ]] && proxy="  - name: \"$name\"
+    type: trojan
+    server: \"$server_ip\"
+    port: $actual_port
+    password: $password
+    udp: true
+    skip-cert-verify: true
+    sni: $sni"
+                ;;
+            ss-legacy)
+                [[ -n "$server_ip" ]] && proxy="  - name: \"$name\"
+    type: ss
+    server: \"$server_ip\"
+    port: $port
+    cipher: $method
+    password: $password
+    udp: true"
+                ;;
+            socks)
+                if [[ "$use_tls" != "true" && -n "$server_ip" ]]; then
+                    proxy="  - name: \"$name\"
+    type: socks5
+    server: \"$server_ip\"
+    port: $actual_port
+    udp: true"
+                    if [[ -n "$username" ]]; then
+                        proxy="$proxy
+    username: $username
+    password: $password"
+                    fi
+                fi
+                ;;
+            esac
+
+            if [[ -n "$proxy" ]]; then
+                proxies+="$proxy"$'\n'
+                proxy_names+="      - \"$name\""$'\n'
+            fi
+        done <<< "$cfg_stream"
+    done
+
+    local external_links=$(get_all_external_links)
+    while IFS= read -r link || [[ -n "$link" ]]; do
+        [[ -z "$link" || "$link" != *"://"* ]] && continue
+        local ext_proxy=$(external_link_to_clash "$link")
+        if [[ -n "$ext_proxy" ]]; then
+            proxies+="$ext_proxy"$'\n'
+            local ext_name=$(echo "$ext_proxy" | grep -m1 'name:' | sed 's/.*name:[[:space:]]*"\([^"]*\)".*/\1/')
+            proxy_names+="      - \"$ext_name\""$'\n'
+        fi
+    done <<< "$external_links"
+
+    render_clash_profile "$proxies" "$proxy_names"
 }
 
 # 生成 Surge 订阅内容
@@ -22091,7 +22347,10 @@ generate_sub_files() {
     # V2Ray/通用订阅
     gen_v2ray_sub > "$sub_dir/base64"
     
-    # Clash 订阅
+    # Mihomo / Clash Meta 订阅
+    gen_mihomo_sub > "$sub_dir/mihomo.yaml"
+
+    # 经典 Clash 订阅
     gen_clash_sub > "$sub_dir/clash.yaml"
     
     # Surge 订阅
@@ -22104,7 +22363,9 @@ generate_sub_files() {
 # 配置 Nginx 订阅服务
 setup_nginx_sub() {
     local sub_uuid=$(get_sub_uuid)
-    local sub_port="${1:-8443}" domain="${2:-}" use_https="${3:-true}"
+    local sub_port="${1:-8443}" domain="${2:-}" use_https="${3:-}"
+    [[ -z "$use_https" ]] && [[ -n "$domain" ]] && use_https="true" || true
+    [[ -z "$use_https" ]] && use_https="false"
 
     generate_sub_files
     local sub_dir="$CFG/subscription/$sub_uuid"
@@ -22159,6 +22420,12 @@ $ssl_block
         alias $sub_dir/;
         default_type text/plain;
         add_header Content-Type 'text/plain; charset=utf-8';
+    }
+
+    location /sub/$sub_uuid/mihomo {
+        alias $sub_dir/mihomo.yaml;
+        default_type text/yaml;
+        add_header Content-Disposition 'attachment; filename="mihomo.yaml"';
     }
 
     location /sub/$sub_uuid/clash {
@@ -22221,7 +22488,10 @@ show_sub_links() {
     _line
     echo -e "  ${W}订阅链接${NC}"
     _line
-    echo -e "  ${Y}Clash/Clash Verge (推荐):${NC}"
+    echo -e "  ${Y}Mihomo/Clash Meta/Clash Verge (完整协议，推荐):${NC}"
+    echo -e "  ${G}${base_url}/mihomo${NC}"
+    echo ""
+    echo -e "  ${Y}经典 Clash (仅 VMess/Trojan/SS/SOCKS5 等通用协议):${NC}"
     echo -e "  ${G}${base_url}/clash${NC}"
     echo ""
     echo -e "  ${Y}Surge:${NC}"
@@ -22235,7 +22505,7 @@ show_sub_links() {
     # HTTPS 自签名证书提示
     if [[ "$sub_https" == "true" && -z "$sub_domain" ]]; then
         echo -e "  ${Y}提示: 使用自签名证书，部分客户端可能无法解析订阅${NC}"
-        echo -e "  ${D}建议使用 HTTP 或绑定真实域名申请证书${NC}"
+        echo -e "  ${D}建议优先使用 HTTP，或绑定真实域名后再启用 HTTPS${NC}"
     fi
 }
 
@@ -22384,8 +22654,15 @@ setup_subscription_interactive() {
     
     # HTTPS
     local use_https="true"
-    read -rp "  启用 HTTPS? [Y/n]: " https_choice
-    [[ "$https_choice" =~ ^[nN]$ ]] && use_https="false"
+    if [[ -z "$sub_domain" ]]; then
+        use_https="false"
+        echo -e "  ${D}未填写域名时，默认使用 HTTP，避免自签名 HTTPS 导致订阅客户端拉取失败${NC}"
+        read -rp "  启用 HTTPS? [y/N]: " https_choice
+        [[ "$https_choice" =~ ^[yY]$ ]] && use_https="true"
+    else
+        read -rp "  启用 HTTPS? [Y/n]: " https_choice
+        [[ "$https_choice" =~ ^[nN]$ ]] && use_https="false"
+    fi
     
     # 生成订阅文件
     generate_sub_files
@@ -22440,6 +22717,11 @@ server {
         add_header Content-Type "text/plain; charset=utf-8";
     }
 
+    location ~ ^/sub/([a-f0-9-]+)/mihomo\$ {
+        alias $CFG/subscription/\$1/mihomo.yaml;
+        default_type text/yaml;
+    }
+
     location ~ ^/sub/([a-f0-9-]+)/clash\$ {
         alias $CFG/subscription/\$1/clash.yaml;
         default_type text/yaml;
@@ -22473,6 +22755,11 @@ server {
         alias $CFG/subscription/\$1/base64;
         default_type text/plain;
         add_header Content-Type "text/plain; charset=utf-8";
+    }
+
+    location ~ ^/sub/([a-f0-9-]+)/mihomo\$ {
+        alias $CFG/subscription/\$1/mihomo.yaml;
+        default_type text/yaml;
     }
 
     location ~ ^/sub/([a-f0-9-]+)/clash\$ {
