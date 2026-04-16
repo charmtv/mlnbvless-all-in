@@ -4704,27 +4704,58 @@ get_ip_country() {
     local ip="${1:-}"
     local country=""
     
-    # 方法1: ip-api.com (免费，无需 key)
+    # 方法1: ipinfo.io
     if [[ -n "$ip" ]]; then
-        country=$(curl -sf --connect-timeout 3 "http://ip-api.com/line/${ip}?fields=countryCode" 2>/dev/null)
+        country=$(curl -sf --connect-timeout 3 "https://ipinfo.io/${ip}/country" 2>/dev/null)
     else
-        country=$(curl -sf --connect-timeout 3 "http://ip-api.com/line/?fields=countryCode" 2>/dev/null)
+        country=$(curl -sf --connect-timeout 3 "https://ipinfo.io/country" 2>/dev/null)
     fi
     
-    # 方法2: 回退到 ipinfo.io
+    # 方法2: 回退到 ip-api.com (免费，无需 key)
     if [[ -z "$country" || "$country" == "fail" ]]; then
         if [[ -n "$ip" ]]; then
-            country=$(curl -sf --connect-timeout 3 "https://ipinfo.io/${ip}/country" 2>/dev/null)
+            country=$(curl -sf --connect-timeout 3 "http://ip-api.com/line/${ip}?fields=countryCode" 2>/dev/null)
         else
-            country=$(curl -sf --connect-timeout 3 "https://ipinfo.io/country" 2>/dev/null)
+            country=$(curl -sf --connect-timeout 3 "http://ip-api.com/line/?fields=countryCode" 2>/dev/null)
         fi
     fi
     
-    # 清理结果（去除空白字符）
-    country=$(echo "$country" | tr -d '[:space:]')
+    # 清理结果（去除空白字符并统一大写）
+    country=$(echo "$country" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
     
     # 默认返回 XX
+    [[ "$country" =~ ^[A-Z]{2}$ ]] || country="XX"
     echo "${country:-XX}"
+}
+
+get_node_date_tag() {
+    date '+%Y%m%d' 2>/dev/null || busybox date '+%Y%m%d' 2>/dev/null || echo "00000000"
+}
+
+get_node_name_prefix() {
+    local ipv4="${1:-}"
+    local ipv6="${2:-}"
+    local region=""
+
+    [[ -n "$ipv4" ]] && region=$(get_ip_country "$ipv4")
+    if [[ -z "$region" || "$region" == "XX" ]] && [[ -n "$ipv6" ]]; then
+        region=$(get_ip_country "$ipv6")
+    fi
+
+    echo "${region:-XX}-$(get_node_date_tag)"
+}
+
+normalize_node_name_segment() {
+    local value="$1"
+    value=$(echo "$value" | tr '[:space:]/' '--' | sed 's/[^A-Za-z0-9+_.-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$//')
+    echo "$value"
+}
+
+build_node_name() {
+    local prefix="${1:-XX-$(get_node_date_tag)}"
+    local suffix="${2:-}"
+    suffix=$(normalize_node_name_segment "$suffix")
+    [[ -n "$suffix" ]] && echo "${prefix}-${suffix}" || echo "$prefix"
 }
 
 # 通过DNS检查域名的IP解析 (兼容性增强)
@@ -5716,28 +5747,25 @@ get_ip_suffix() {
 
 gen_vless_link() {
     local ip="$1" port="$2" uuid="$3" pbk="$4" sid="$5" sni="$6" country="${7:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}VLESS+Reality${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "VLESS+Reality")
     printf '%s\n' "vless://${uuid}@${ip}:${port}?encryption=none&security=reality&type=tcp&sni=${sni}&fp=chrome&pbk=${pbk}&sid=${sid}&flow=xtls-rprx-vision#${name}"
 }
 
 gen_vless_encryption_link() {
     local ip="$1" port="$2" uuid="$3" encryption="$4" country="${5:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}VLESS+Encryption${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "VLESS+Encryption")
     printf '%s\n' "vless://${uuid}@${ip}:${port}?encryption=${encryption}&security=none&type=tcp#${name}"
 }
 
 gen_vless_xhttp_link() {
     local ip="$1" port="$2" uuid="$3" pbk="$4" sid="$5" sni="$6" path="${7:-/}" country="${8:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}VLESS-XHTTP${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "VLESS-XHTTP")
     printf '%s\n' "vless://${uuid}@${ip}:${port}?encryption=none&security=reality&type=xhttp&sni=${sni}&fp=chrome&pbk=${pbk}&sid=${sid}&path=$(urlencode "$path")&mode=auto#${name}"
 }
 
 gen_vless_xhttp_cdn_link() {
     local domain="$1" port="$2" uuid="$3" path="${4:-/}" country="${5:-}"
-    local name="${country:+${country}-}XHTTP-CDN"
+    local name=$(build_node_name "$country" "XHTTP-CDN")
     printf '%s\n' "vless://${uuid}@${domain}:${port}?encryption=none&security=tls&type=xhttp&sni=${domain}&host=${domain}&path=$(urlencode "$path")&mode=auto#${name}"
 }
 
@@ -5745,8 +5773,7 @@ gen_vmess_ws_link() {
     local ip="$1" port="$2" uuid="$3" sni="$4" path="$5" country="${6:-}"
     local clean_ip="${ip#[}"
     clean_ip="${clean_ip%]}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}VMess-WS${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "VMess-WS")
 
     # VMess ws 链接：vmess://base64(json)
     # 注意：allowInsecure 必须是字符串 "true"，不是布尔值
@@ -5783,38 +5810,33 @@ _can_gen_qr() {
 # 生成各协议分享链接
 gen_hy2_link() {
     local ip="$1" port="$2" password="$3" sni="$4" country="${5:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}Hysteria2${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "Hysteria2")
     # 链接始终使用实际端口，端口跳跃需要客户端手动配置
     printf '%s\n' "hysteria2://${password}@${ip}:${port}?sni=${sni}&insecure=1#${name}"
 }
 
 gen_trojan_link() {
     local ip="$1" port="$2" password="$3" sni="$4" country="${5:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}Trojan${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "Trojan")
     printf '%s\n' "trojan://${password}@${ip}:${port}?security=tls&sni=${sni}&type=tcp&allowInsecure=1#${name}"
 }
 
 gen_trojan_ws_link() {
     local ip="$1" port="$2" password="$3" sni="$4" path="${5:-/trojan}" country="${6:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}Trojan-WS${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "Trojan-WS")
     printf '%s\n' "trojan://${password}@${ip}:${port}?security=tls&sni=${sni}&type=ws&host=${sni}&path=$(urlencode "$path")&allowInsecure=1#${name}"
 }
 
 gen_vless_ws_link() {
     local ip="$1" port="$2" uuid="$3" sni="$4" path="${5:-/}" country="${6:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}VLESS-WS${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "VLESS-WS")
     printf '%s\n' "vless://${uuid}@${ip}:${port}?encryption=none&security=tls&sni=${sni}&type=ws&host=${sni}&path=$(urlencode "$path")&allowInsecure=1#${name}"
 }
 
 # VLESS-WS (无TLS) 分享链接 - 用于 CF Tunnel
 gen_vless_ws_notls_link() {
     local ip="$1" port="$2" uuid="$3" path="${4:-/}" host="${5:-}" country="${6:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}VLESS-WS-CF${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "VLESS-WS-CF")
     # security=none 表示不使用 TLS
     local link="vless://${uuid}@${ip}:${port}?encryption=none&security=none&type=ws&path=$(urlencode "$path")"
     [[ -n "$host" ]] && link="${link}&host=${host}"
@@ -5823,60 +5845,53 @@ gen_vless_ws_notls_link() {
 
 gen_vless_vision_link() {
     local ip="$1" port="$2" uuid="$3" sni="$4" country="${5:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}VLESS-Vision${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "VLESS-Vision")
     printf '%s\n' "vless://${uuid}@${ip}:${port}?encryption=none&security=tls&sni=${sni}&type=tcp&flow=xtls-rprx-vision&allowInsecure=1#${name}"
 }
 
 gen_ss2022_link() {
     local ip="$1" port="$2" method="$3" password="$4" country="${5:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}SS2022${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "SS2022")
     local userinfo=$(printf '%s:%s' "$method" "$password" | base64 -w 0 2>/dev/null || printf '%s:%s' "$method" "$password" | base64)
     printf '%s\n' "ss://${userinfo}@${ip}:${port}#${name}"
 }
 
 gen_ss_legacy_link() {
     local ip="$1" port="$2" method="$3" password="$4" country="${5:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}SS${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "SS")
     local userinfo=$(printf '%s:%s' "$method" "$password" | base64 -w 0 2>/dev/null || printf '%s:%s' "$method" "$password" | base64)
     printf '%s\n' "ss://${userinfo}@${ip}:${port}#${name}"
 }
 
 gen_snell_link() {
     local ip="$1" port="$2" psk="$3" version="${4:-4}" country="${5:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}Snell-v${version}${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "Snell-v${version}")
     # Snell 没有标准URI格式，使用自定义格式
     printf '%s\n' "snell://${psk}@${ip}:${port}?version=${version}#${name}"
 }
 
 gen_tuic_link() {
     local ip="$1" port="$2" uuid="$3" password="$4" sni="$5" country="${6:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}TUIC${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "TUIC")
     printf '%s\n' "tuic://${uuid}:${password}@${ip}:${port}?congestion_control=bbr&alpn=h3&sni=${sni}&udp_relay_mode=native&allow_insecure=1#${name}"
 }
 
 gen_anytls_link() {
     local ip="$1" port="$2" password="$3" sni="$4" country="${5:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}AnyTLS${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "AnyTLS")
     printf '%s\n' "anytls://${password}@${ip}:${port}?sni=${sni}&allowInsecure=1#${name}"
 }
 
 gen_naive_link() {
     local host="$1" port="$2" username="$3" password="$4" country="${5:-}"
-    local name="${country:+${country}-}Naive"
+    local name=$(build_node_name "$country" "Naive")
     # Shadowrocket HTTP/2 格式，使用域名
     printf '%s\n' "http2://${username}:${password}@${host}:${port}#${name}"
 }
 
 gen_shadowtls_link() {
     local ip="$1" port="$2" password="$3" method="$4" sni="$5" stls_password="$6" country="${7:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}ShadowTLS${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "ShadowTLS")
     # ShadowTLS链接格式：ss://method:password@server:port#name + ShadowTLS参数
     local ss_link=$(echo -n "${method}:${password}" | base64 -w 0)
     printf '%s\n' "ss://${ss_link}@${ip}:${port}?plugin=shadow-tls;host=${sni};password=${stls_password}#${name}"
@@ -5887,8 +5902,7 @@ gen_snell_v5_link() { gen_snell_link "$1" "$2" "$3" "${4:-5}" "$5"; }
 
 gen_socks_link() {
     local ip="$1" port="$2" username="$3" password="$4" country="${5:-}"
-    local ip_suffix=$(get_ip_suffix "$ip")
-    local name="${country:+${country}-}SOCKS5${ip_suffix:+-${ip_suffix}}"
+    local name=$(build_node_name "$country" "SOCKS5")
     if [[ -n "$username" && -n "$password" ]]; then
         printf '%s\n' "https://t.me/socks?server=${ip}&port=${port}&user=${username}&pass=${password}"
     else
@@ -17283,8 +17297,7 @@ show_all_share_links() {
     # 获取 IP 地址
     local ipv4=$(get_ipv4)
     local ipv6=$(get_ipv6)
-    local country_code=$(get_ip_country "$ipv4")
-    [[ -z "$country_code" ]] && country_code=$(get_ip_country "$ipv6")
+    local country_code=$(get_node_name_prefix "$ipv4" "$ipv6")
     
     # 主协议端口（用于回落 WS/VMess）
     local master_port=""
@@ -17579,8 +17592,7 @@ show_single_protocol_info() {
     [[ "$is_fallback_protocol" == "true" ]] && echo -e "  ${D}(通过 $master_name 主协议回落，内部端口: $port)${NC}"
     
     # 获取地区代码（只获取一次，用于所有显示）
-    local country_code=$(get_ip_country "$ipv4")
-    [[ -z "$country_code" ]] && country_code=$(get_ip_country "$ipv6")
+    local country_code=$(get_node_name_prefix "$ipv4" "$ipv6")
     
     # 确定用于配置显示的 IP 地址：优先 IPv4，纯 IPv6 环境使用 IPv6（带方括号）
     local config_ip="$ipv4"
@@ -17866,8 +17878,7 @@ show_single_protocol_info() {
     _line
     
     # 获取地区代码（只获取一次，用于所有链接）
-    local country_code=$(get_ip_country "$ipv4")
-    [[ -z "$country_code" ]] && country_code=$(get_ip_country "$ipv6")
+    local country_code=$(get_node_name_prefix "$ipv4" "$ipv6")
     
     # 确定使用的 IP 地址：优先 IPv4，纯 IPv6 环境使用 IPv6
     local ip_addr=""
@@ -21692,8 +21703,7 @@ gen_v2ray_sub() {
     local ipv6=$(get_ipv6)
     
     # 获取地区代码
-    local country_code=$(get_ip_country "$ipv4")
-    [[ -z "$country_code" ]] && country_code=$(get_ip_country "$ipv6")
+    local country_code=$(get_node_name_prefix "$ipv4" "$ipv6")
     
     # 确定使用的 IP 地址：优先 IPv4，纯 IPv6 环境使用 IPv6（带方括号）
     local server_ip="$ipv4"
@@ -21819,8 +21829,7 @@ gen_mihomo_sub() {
     local proxy_names=""
     
     # 获取地区代码和IP后缀
-    local country_code=$(get_ip_country "$ipv4")
-    [[ -z "$country_code" ]] && country_code=$(get_ip_country "$ipv6")
+    local country_code=$(get_node_name_prefix "$ipv4" "$ipv6")
     
     # 确定使用的 IP 地址：优先 IPv4，纯 IPv6 环境使用 IPv6
     local server_ip="$ipv4"
@@ -21875,7 +21884,7 @@ gen_mihomo_sub() {
                 actual_port="$master_port"
             fi
             
-            local name="${country_code}-$(get_protocol_name $protocol)-${ip_suffix}"
+            local name=$(build_node_name "$country_code" "$(get_protocol_name "$protocol")")
             local proxy=""
             
             case "$protocol" in
@@ -22096,8 +22105,7 @@ gen_clash_sub() {
     local proxies=""
     local proxy_names=""
 
-    local country_code=$(get_ip_country "$ipv4")
-    [[ -z "$country_code" ]] && country_code=$(get_ip_country "$ipv6")
+    local country_code=$(get_node_name_prefix "$ipv4" "$ipv6")
 
     local server_ip="$ipv4"
     local ip_suffix="${ipv4##*.}"
@@ -22142,7 +22150,7 @@ gen_clash_sub() {
                 actual_port="$master_port"
             fi
 
-            local name="${country_code}-$(get_protocol_name $protocol)-${ip_suffix}"
+            local name=$(build_node_name "$country_code" "$(get_protocol_name "$protocol")")
             local proxy=""
 
             case "$protocol" in
@@ -22228,8 +22236,7 @@ gen_surge_sub() {
     local proxy_names=""
     
     # 获取地区代码
-    local country_code=$(get_ip_country "$ipv4")
-    [[ -z "$country_code" ]] && country_code=$(get_ip_country "$ipv6")
+    local country_code=$(get_node_name_prefix "$ipv4" "$ipv6")
     
     # 确定使用的 IP 地址：优先 IPv4，纯 IPv6 环境使用 IPv6
     local server_ip="$ipv4"
@@ -22271,7 +22278,7 @@ gen_surge_sub() {
             local psk=$(echo "$cfg" | jq -r '.psk // empty')
             local version=$(echo "$cfg" | jq -r '.version // empty')
             
-            local name="${country_code}-$(get_protocol_name $protocol)-${ip_suffix}"
+            local name=$(build_node_name "$country_code" "$(get_protocol_name "$protocol")")
             local proxy=""
             
             case "$protocol" in
@@ -24551,8 +24558,7 @@ _gen_user_share_link() {
     # 获取 IP 地址
     local ipv4=$(get_ipv4)
     local ipv6=$(get_ipv6)
-    local country_code=$(get_ip_country "$ipv4")
-    [[ -z "$country_code" ]] && country_code=$(get_ip_country "$ipv6")
+    local country_code=$(get_node_name_prefix "$ipv4" "$ipv6")
     
     # 检测回落协议端口
     local display_port="$port"
@@ -24582,7 +24588,7 @@ _gen_user_share_link() {
         [[ -z "$display_port" ]] && display_port="$port"
     fi
     
-    local remark="${country_code}-${user_name}"
+    local remark=$(build_node_name "$country_code" "$user_name")
     
     # 生成 IPv4 链接
     if [[ -n "$ipv4" ]]; then
